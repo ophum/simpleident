@@ -1,0 +1,16 @@
+<html>
+<head>
+    <meta charset="utf-8" />
+    <title>oauth2 authorize</title>
+</head>
+<body>
+<h1>{{ .Client.Name }}</h1>
+
+<p>{{ .Client.Description }}</p>
+
+<p>アクセスを許可しますか?</p>
+<form action="/oauth2/authorize" method="POST">
+    <button type="submit">Accept</button>
+</form>
+</body>
+</html>
