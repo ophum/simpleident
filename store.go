@@ -77,6 +77,8 @@ func (s *Store[T]) Get(id uuid.UUID) (*T, error) {
 }
 
 func (s *Store[T]) Find(conds func(a *T) bool) (*T, error) {
+	s.mu.RLock()
+	defer s.mu.RUnlock()
 	for _, r := range s.records {
 		if conds(r) {
 			return s.deepCopyFn(r), nil
