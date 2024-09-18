@@ -173,11 +173,24 @@ func OAuth2ClientRegisterRoutes(r gin.IRouter) {
 			return
 		}
 
+		session := sessions.Default(ctx)
 		if req.ResponseType != "code" {
 			ctx.AbortWithStatus(http.StatusBadRequest)
 			return
 		}
 
+		if req.RedirectURI != "" {
+			u, err := url.Parse(req.RedirectURI)
+			if err != nil {
+				ctx.AbortWithError(http.StatusUnprocessableEntity, err)
+				return
+			}
+			if u.Fragment != "" {
+				ctx.AbortWithStatus(http.StatusUnprocessableEntity)
+				return
+			}
+			session.Set("redirect_uri", req.RedirectURI)
+		}
 		id, err := uuid.Parse(req.ClientID)
 		if err != nil {
 			ctx.AbortWithError(http.StatusUnprocessableEntity, err)
@@ -190,7 +203,6 @@ func OAuth2ClientRegisterRoutes(r gin.IRouter) {
 			return
 		}
 
-		session := sessions.Default(ctx)
 		session.Set("client", client)
 		session.Set("state", req.State)
 		session.Save()
@@ -208,21 +220,40 @@ func OAuth2ClientRegisterRoutes(r gin.IRouter) {
 			ctx.AbortWithStatus(http.StatusBadRequest)
 			return
 		}
-		state, ok := session.Get("state").(string)
-		if !ok {
-			ctx.AbortWithStatus(http.StatusBadRequest)
+		state := session.Get("state").(string)
+
+		cb, err := url.Parse(client.CallbackURL)
+		if err != nil {
+			ctx.AbortWithError(http.StatusUnprocessableEntity, err)
 			return
 		}
+		redirectURI := session.Get("redirect_uri").(string)
+		if redirectURI != "" {
+			sr, err := url.Parse(redirectURI)
+			if err != nil {
+				ctx.AbortWithError(http.StatusUnprocessableEntity, err)
+				return
+			}
 
+			cb.RawQuery = sr.RawQuery
+			if cb != sr {
+				ctx.AbortWithStatus(http.StatusUnprocessableEntity)
+				return
+			}
+		}
+
+		serverError := ErrorResponseQuery{"server_error", state}
 		code, err := generateSecret(32)
 		if err != nil {
-			ctx.AbortWithError(http.StatusInternalServerError, err)
+			cb.RawQuery = serverError.Encode()
+			ctx.Redirect(http.StatusFound, cb.String())
 			return
 		}
 
 		issedCodeID, err := uuid.NewV7()
 		if err != nil {
-			ctx.AbortWithError(http.StatusInternalServerError, err)
+			cb.RawQuery = serverError.Encode()
+			ctx.Redirect(http.StatusFound, cb.String())
 			return
 		}
 		if err := issuedCodeStore.Add(issedCodeID, &OAuth2IssuedCode{
@@ -232,20 +263,16 @@ func OAuth2ClientRegisterRoutes(r gin.IRouter) {
 			AccountID: uuid.Must(uuid.Parse("0191f70a-d3a2-7970-8287-d2bc4264c3c5")),
 			ExpiredAt: time.Now().Add(time.Minute),
 		}); err != nil {
-			ctx.AbortWithError(http.StatusInternalServerError, err)
-			return
-		}
-		u, err := url.Parse(client.CallbackURL)
-		if err != nil {
-			ctx.AbortWithError(http.StatusInternalServerError, err)
+			cb.RawQuery = serverError.Encode()
+			ctx.Redirect(http.StatusFound, cb.String())
 			return
 		}
 
 		q := url.Values{}
 		q.Set("code", code)
 		q.Set("state", state)
-		u.RawQuery = q.Encode()
-		ctx.Redirect(http.StatusFound, u.String())
+		cb.RawQuery = q.Encode()
+		ctx.Redirect(http.StatusFound, cb.String())
 	})
 
 	r.POST("/oauth2/token", func(ctx *gin.Context) {
@@ -349,4 +376,25 @@ func generateSecret(length int) (string, error) {
 	}
 	return secret, nil
 
+}
+
+type AuthorizeRequest struct {
+	ResponseType string `form:"response_type"`
+	ClientID     string `form:"client_id"`
+	State        string `form:"state"`
+	RedirectURI  string `form:"redirect_uri"`
+}
+
+type ErrorResponseQuery struct {
+	Error string
+	State string
+}
+
+func (e *ErrorResponseQuery) Encode() string {
+	v := url.Values{}
+	v.Set("error", e.Error)
+	if e.State != "" {
+		v.Set("state", e.State)
+	}
+	return v.Encode()
 }

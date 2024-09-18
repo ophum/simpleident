@@ -112,9 +112,3 @@ func AccountRegisterRoutes(r gin.IRouter) {
 
 	})
 }
-
-type AuthorizeRequest struct {
-	ResponseType string `form:"response_type"`
-	ClientID     string `form:"client_id"`
-	State        string `form:"state"`
-}
