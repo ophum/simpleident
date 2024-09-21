@@ -4,11 +4,18 @@ Copyright © 2024 Takahiro INAGAKI <inagaki0106@gmail.com>
 package cmd
 
 import (
+	"html/template"
+	"net/http"
+
+	"github.com/gin-contrib/sessions"
+	"github.com/gin-contrib/sessions/cookie"
 	"github.com/gin-gonic/gin"
-	"github.com/ophum/simpleident/admin"
+	"github.com/ophum/simpleident/assets"
 	"github.com/ophum/simpleident/server"
+	"github.com/ophum/simpleident/templates"
 	"github.com/spf13/cobra"
 	"github.com/spf13/viper"
+	csrf "github.com/utrack/gin-csrf"
 	"gorm.io/driver/sqlite"
 	"gorm.io/gorm"
 )
@@ -55,17 +62,25 @@ func serverCommand(cmd *cobra.Command, args []string) error {
 	}
 
 	r := gin.Default()
-	adminServer := admin.NewServer(db)
-	if err := adminServer.RegisterTemplates(r); err != nil {
-		return err
-	}
-	adminServer.RegisterRoutes(r)
+	templ := template.Must(template.New("").
+		Delims("{{", "}}").
+		Funcs(r.FuncMap).
+		ParseFS(templates.FS, "**/*.tmpl", "*.tmpl"),
+	)
+	r.SetHTMLTemplate(templ)
+	r.StaticFileFS("favicon.ico", "favicon.ico", http.FS(assets.FS))
 
-	server := server.NewServer(db)
-	if err := server.RegisterTemplates(r); err != nil {
-		return err
-	}
-	server.RegisterSession(r)
+	store := cookie.NewStore([]byte("secret"))
+	r.Use(sessions.Sessions("simpleident", store))
+	r.Use(csrf.Middleware(csrf.Options{
+		Secret: "secret",
+		ErrorFunc: func(ctx *gin.Context) {
+			ctx.String(http.StatusBadRequest, "CSRF token mismatch")
+			ctx.Abort()
+		},
+	}))
+
+	server := server.NewServer(db, true)
 	server.RegisterRoutes(r)
 
 	return r.Run(":8080")

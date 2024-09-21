@@ -1,14 +1,11 @@
 package server
 
 import (
-	"embed"
 	"errors"
-	"html/template"
 	"net/http"
 
 	"github.com/gin-contrib/sessions"
 
-	"github.com/gin-contrib/sessions/cookie"
 	"github.com/gin-gonic/gin"
 	"github.com/ophum/simpleident/models"
 	"golang.org/x/crypto/bcrypt"
@@ -17,42 +14,24 @@ import (
 	"gorm.io/gorm"
 )
 
-//go:embed templates/*.tmpl
-var templateFS embed.FS
-
 type Server struct {
-	db *gorm.DB
+	db                *gorm.DB
+	enableAdminServer bool
 }
 
-func NewServer(db *gorm.DB) *Server {
+func NewServer(db *gorm.DB, enableAdminServer bool) *Server {
 	return &Server{
-		db: db,
+		db:                db,
+		enableAdminServer: enableAdminServer,
 	}
 }
 
-func (s *Server) RegisterSession(engine *gin.Engine) {
-	store := cookie.NewStore([]byte("secret"))
-	engine.Use(sessions.Sessions("simpleident", store))
-	engine.Use(csrf.Middleware(csrf.Options{
-		Secret: "secret",
-		ErrorFunc: func(ctx *gin.Context) {
-			ctx.String(http.StatusBadRequest, "CSRF token mismatch")
-			ctx.Abort()
-		},
-	}))
-}
-
-func (s *Server) RegisterTemplates(engine *gin.Engine) error {
-	templ, err := template.New("").ParseFS(templateFS, "templates/*.tmpl")
-	if err != nil {
-		return err
+func (s *Server) RegisterRoutes(r *gin.Engine) {
+	if s.enableAdminServer {
+		s.registerAdminRoutes(r)
 	}
 
-	engine.SetHTMLTemplate(templ)
-	return nil
-}
-
-func (s *Server) RegisterRoutes(r gin.IRouter) {
+	r.GET("/", handler(s.index))
 	r.GET("/sign-in", handler(s.signIn))
 	r.POST("/sign-in", handler(s.signInProcess))
 	r.GET("/userinfo", handler(s.userinfo))
@@ -69,6 +48,11 @@ func handler(fn func(ctx *gin.Context) error) gin.HandlerFunc {
 	}
 }
 
+func (s *Server) index(ctx *gin.Context) error {
+	ctx.HTML(http.StatusOK, "index", gin.H{})
+	return nil
+}
+
 func (s *Server) signIn(ctx *gin.Context) error {
 	session := sessions.Default(ctx)
 
@@ -77,7 +61,7 @@ func (s *Server) signIn(ctx *gin.Context) error {
 		return nil
 	}
 
-	ctx.HTML(http.StatusOK, "sign-in.html.tmpl", gin.H{
+	ctx.HTML(http.StatusOK, "sign-in", gin.H{
 		"CSRFToken": csrf.GetToken(ctx),
 	})
 	return nil
@@ -129,7 +113,7 @@ func (s *Server) userinfo(ctx *gin.Context) error {
 		return err
 	}
 
-	ctx.HTML(http.StatusOK, "userinfo.html.tmpl", gin.H{
+	ctx.HTML(http.StatusOK, "userinfo", gin.H{
 		"Account":   account,
 		"CSRFToken": csrf.GetToken(ctx),
 	})
