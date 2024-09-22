@@ -1,3 +1,4 @@
+{{ define "admin/oauth2-client-detail" }}
 <html>
 <head>
     <meta charset="utf-8" />
@@ -7,20 +8,49 @@
 <h1>oauth2 client detail</h1>
 
 <a href="/">Top</a>
-<a href="/admin/oauth2/clients">oauth2 client list</a>
+<a href="/admin/oauth2/clients">List</a>
 
-<h2>{{ .Name }}</h2>
+<table border=1>
+    <tbody>
+        <tr>
+            <th>id</th>
+            <td>{{ .Client.ID }}</td>
+        </tr>
+        <tr>
+            <th>name</th>
+            <td>{{ .Client.Name }}</td>
+        </tr>
+        <tr>
+            <th>description</th>
+            <td>{{ .Client.Description }}</td>
+        </tr>
+        <tr>
+            <th>callback_url</th>
+            <td>{{ .Client.CallbackURL }}</td>
+        </tr>
+        <tr>
+            <th>created at</th>
+            <td>{{ .Client.CreatedAt }}</td>
+        </tr>
+    </tbody>
+</table>
 
-<p>{{ .Description }}</p>
+<h2>Client Secrets</h2>
 
-<h3>Client Secrets</h3>
-<form action="/admin/oauth2/clients/{{ .ID }}/create-secret" method="POST">
-    <button type="submit">Create Secret</button>
+<form action="/admin/oauth2/clients/{{ .Client.ID }}/generate-secret" method="POST">
+    <input type="hidden" name="_csrf" value="{{ .CSRFToken }}" />
+    <button type="submit">Generate</button>
 </form>
-<ul>
-    {{ range .ClientSecrets }}
-        <li>{{ . }}</li>
-    {{ end }}
-</ul>
+
+<table border=1>
+    <tbody>
+        {{ range .Client.ClientSecrets }}
+        <tr>
+            <td>{{ .Secret }}</td>
+        </tr>
+        {{ end }}
+    </tbody>
+</table>
 </body>
 </html>
+{{ end }}

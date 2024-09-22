@@ -1,2 +1,3 @@
-adminBasicAuthAccounts:
-  admin: password
+database:
+  driver: sqlite3
+  dsn: tmp/test.db

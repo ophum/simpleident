@@ -1,13 +1,14 @@
-{{ define "admin/account-new" }}
+{{ define "sign-in" }}
 <html>
 <head>
     <meta charset="utf-8" />
-    <title>new account</title>
+    <title>sign-in</title>
 </head>
 <body>
-<h1>new account</h1>
+<h1>SignIn</h1>
 
-<form action="/admin/accounts/new" method="POST">
+<form action="/sign-in" method="POST">
+    <input type="hidden" name="_csrf" value="{{ .CSRFToken }}">
     <div>
         <label>username</label>
         <input type="text" name="username" />
@@ -17,10 +18,7 @@
         <input type="password" name="password" />
     </div>
     <div>
-        <button type="submit">Create</button>
-        <a href="/admin/accounts">
-        <button type="button">Cancel</button>
-        </a>
+        <button type="submit">SignIn</button>
     </div>
 </form>
 

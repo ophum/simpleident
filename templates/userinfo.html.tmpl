@@ -1,0 +1,21 @@
+{{ define "userinfo" }}
+<html>
+<head>
+    <meta charset="utf-8" />
+    <title>userinfo</title>
+</head>
+<body>
+<h1>userinfo</h1>
+
+<div>id: {{ .Account.ID }}</div>
+<div>username: {{ .Account.Username }}</div>
+<div>created_at: {{ .Account.CreatedAt }}</div>
+<div>updated_at: {{ .Account.UpdatedAt }}</div>
+
+<form action="/sign-out" method="POST">
+    <input type="hidden" name="_csrf" value="{{ .CSRFToken }}">
+    <button type="submit">SignOut</button>
+</form>
+</body>
+</html>
+{{ end }}
