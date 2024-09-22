@@ -7,32 +7,25 @@ import (
 	"github.com/google/uuid"
 	"github.com/ophum/simpleident/models"
 	"golang.org/x/crypto/bcrypt"
-	"gorm.io/gorm"
 )
 
 func (s *Server) registerAdminRoutes(router gin.IRouter) {
-	admin := new_adminHandler(s.db)
-
 	r := router.Group("/admin")
 
-	r.GET("/accounts", handler(admin.accountList))
-	r.GET("/accounts/new", handler(admin.accountNew))
-	r.POST("/accounts/new", handler(admin.accountCreate))
+	r.GET("/accounts", handler(s.adminAccountList))
+	r.GET("/accounts/new", handler(s.adminAccountNew))
+	r.POST("/accounts/new", handler(s.adminAccountCreate))
+
+	r.GET("/oauth2/clients", handler(s.adminOauth2ClientList))
+	r.GET("/oauth2/clients/new", handler(s.adminOauth2ClientNew))
+	r.POST("/oauth2/clients/new", handler(s.adminOauth2ClientCreate))
+	r.GET("/oauth2/clients/:id", handler(s.adminOauth2ClientDetail))
+	r.POST("/oauth2/clients/:id/generate-secret", handler(s.adminOauth2ClientGenerateSecret))
 }
 
-type adminHandler struct {
-	db *gorm.DB
-}
-
-func new_adminHandler(db *gorm.DB) *adminHandler {
-	return &adminHandler{
-		db: db,
-	}
-}
-
-func (h *adminHandler) accountList(ctx *gin.Context) error {
+func (s *Server) adminAccountList(ctx *gin.Context) error {
 	var accounts []*models.Account
-	if err := h.db.Find(&accounts).Error; err != nil {
+	if err := s.db.Find(&accounts).Error; err != nil {
 		return err
 	}
 
@@ -42,18 +35,18 @@ func (h *adminHandler) accountList(ctx *gin.Context) error {
 	return nil
 }
 
-func (h *adminHandler) accountNew(ctx *gin.Context) error {
+func (s *Server) adminAccountNew(ctx *gin.Context) error {
 	ctx.HTML(http.StatusOK, "admin/account-new", gin.H{})
 	return nil
 }
 
-type AccountCreateRequest struct {
+type AdminAccountCreateRequest struct {
 	Username string `form:"username"`
 	Password string `form:"password"`
 }
 
-func (h *adminHandler) accountCreate(ctx *gin.Context) error {
-	var req AccountCreateRequest
+func (s *Server) adminAccountCreate(ctx *gin.Context) error {
+	var req AdminAccountCreateRequest
 	if err := ctx.ShouldBind(&req); err != nil {
 		return err
 	}
@@ -67,7 +60,7 @@ func (h *adminHandler) accountCreate(ctx *gin.Context) error {
 	if err != nil {
 		return err
 	}
-	if err := h.db.Create(&models.Account{
+	if err := s.db.Create(&models.Account{
 		Model: models.Model{
 			ID: id,
 		},
