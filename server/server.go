@@ -36,6 +36,9 @@ func (s *Server) RegisterRoutes(r *gin.Engine) {
 	r.POST("/sign-in", handler(s.signInProcess))
 	r.GET("/userinfo", handler(s.userinfo))
 	r.POST("/sign-out", handler(s.signOut))
+
+	r.GET("/oauth2/authorize", handler(s.oauth2Authorize))
+	r.POST("/oauth2/authorize", handler(s.oauth2PostAuthorize))
 }
 
 func handler(fn func(ctx *gin.Context) error) gin.HandlerFunc {
@@ -60,6 +63,10 @@ func (s *Server) signIn(ctx *gin.Context) error {
 		ctx.Redirect(http.StatusFound, "/userinfo")
 		return nil
 	}
+
+	returnURL := ctx.Query("return")
+	session.Set("return_url", returnURL)
+	session.Save()
 
 	ctx.HTML(http.StatusOK, "sign-in", gin.H{
 		"CSRFToken": csrf.GetToken(ctx),
@@ -95,7 +102,12 @@ func (s *Server) signInProcess(ctx *gin.Context) error {
 	session.Set("account_id", account.ID.String())
 	session.Save()
 
-	ctx.Redirect(http.StatusFound, "/userinfo")
+	returnURL := "/userinfo"
+	if r, ok := session.Get("return_url").(string); ok {
+		returnURL = r
+	}
+
+	ctx.Redirect(http.StatusFound, returnURL)
 	return nil
 }
 

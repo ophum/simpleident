@@ -6,6 +6,7 @@ import (
 	"github.com/gin-gonic/gin"
 	"github.com/google/uuid"
 	"github.com/ophum/simpleident/models"
+	csrf "github.com/utrack/gin-csrf"
 	"golang.org/x/crypto/bcrypt"
 )
 
@@ -36,7 +37,9 @@ func (s *Server) adminAccountList(ctx *gin.Context) error {
 }
 
 func (s *Server) adminAccountNew(ctx *gin.Context) error {
-	ctx.HTML(http.StatusOK, "admin/account-new", gin.H{})
+	ctx.HTML(http.StatusOK, "admin/account-new", gin.H{
+		"CSRFToken": csrf.GetToken(ctx),
+	})
 	return nil
 }
 
