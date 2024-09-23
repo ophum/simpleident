@@ -29,7 +29,18 @@ CREATE TABLE `oauth2_client_secrets` (
     deleted_at DATETIME
 );
 
+CREATE TABLE `oauth2_codes` (
+    id TEXT PRIMARY KEY,
+    oauth2_client_id TEXT,
+    code TEXT,
+    account_id TEXT,
+    created_at DATETIME,
+    updated_at DATETIME,
+    deleted_at DATETIME
+);
+
 -- +migrate Down
+DROP TABLE `oauth2_codes`;
 DROP TABLE `oauth2_client_secrets`;
 DROP TABLE `oauth2_clients`;
 DROP TABLE `accounts`;

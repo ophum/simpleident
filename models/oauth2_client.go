@@ -19,3 +19,10 @@ type Oauth2ClientSecret struct {
 
 	Secret string
 }
+
+type Oauth2Code struct {
+	Model
+	Oauth2ClientID uuid.UUID
+	Code           string
+	AccountID      uuid.UUID
+}
