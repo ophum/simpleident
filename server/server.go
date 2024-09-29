@@ -27,18 +27,32 @@ func NewServer(db *gorm.DB, enableAdminServer bool) *Server {
 }
 
 func (s *Server) RegisterRoutes(r *gin.Engine) {
-	if s.enableAdminServer {
-		s.registerAdminRoutes(r)
+	{
+		r := r.Group("")
+		r.Use(csrf.Middleware(csrf.Options{
+			Secret: "secret",
+			ErrorFunc: func(ctx *gin.Context) {
+				ctx.String(http.StatusBadRequest, "CSRF token mismatch")
+				ctx.Abort()
+			},
+		}))
+
+		if s.enableAdminServer {
+			s.registerAdminRoutes(r)
+		}
+
+		r.GET("/", handler(s.index))
+		r.GET("/sign-in", handler(s.signIn))
+		r.POST("/sign-in", handler(s.signInProcess))
+		r.GET("/userinfo", handler(s.userinfo))
+		r.POST("/sign-out", handler(s.signOut))
+		r.GET("/oauth2/authorize", handler(s.oauth2Authorize))
+		r.POST("/oauth2/authorize", handler(s.oauth2PostAuthorize))
 	}
 
-	r.GET("/", handler(s.index))
-	r.GET("/sign-in", handler(s.signIn))
-	r.POST("/sign-in", handler(s.signInProcess))
-	r.GET("/userinfo", handler(s.userinfo))
-	r.POST("/sign-out", handler(s.signOut))
+	r.POST("/oauth2/token", handler(s.oauth2PostToken))
+	r.GET("/api/userinfo", handler(s.apiGetUserinfo))
 
-	r.GET("/oauth2/authorize", handler(s.oauth2Authorize))
-	r.POST("/oauth2/authorize", handler(s.oauth2PostAuthorize))
 }
 
 func handler(fn func(ctx *gin.Context) error) gin.HandlerFunc {
@@ -92,7 +106,8 @@ func (s *Server) signInProcess(ctx *gin.Context) error {
 
 	if err := bcrypt.CompareHashAndPassword([]byte(account.Password), []byte(req.Password)); err != nil {
 		if errors.Is(err, bcrypt.ErrMismatchedHashAndPassword) {
-			return errors.New("unauthorized")
+			ctx.Redirect(http.StatusFound, "/sign-in")
+			return nil
 		}
 		return err
 	}
@@ -131,7 +146,6 @@ func (s *Server) userinfo(ctx *gin.Context) error {
 	})
 	return nil
 }
-
 func (s *Server) signOut(ctx *gin.Context) error {
 	session := sessions.Default(ctx)
 

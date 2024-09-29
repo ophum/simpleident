@@ -39,7 +39,18 @@ CREATE TABLE `oauth2_codes` (
     deleted_at DATETIME
 );
 
+CREATE TABLE `oauth2_tokens` (
+    id TEXT PRIMARY KEY,
+    oauth2_client_id TEXT,
+    token TEXT,
+    account_id TEXT,
+    created_at DATETIME,
+    updated_at DATETIME,
+    deleted_at DATETIME
+);
+
 -- +migrate Down
+DROP TABLE `oauth2_tokens`;
 DROP TABLE `oauth2_codes`;
 DROP TABLE `oauth2_client_secrets`;
 DROP TABLE `oauth2_clients`;

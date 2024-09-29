@@ -26,3 +26,11 @@ type Oauth2Code struct {
 	Code           string
 	AccountID      uuid.UUID
 }
+
+type Oauth2Token struct {
+	Model
+	Oauth2ClientID uuid.UUID
+	Token          string
+	AccountID      uuid.UUID
+	Account        *Account
+}

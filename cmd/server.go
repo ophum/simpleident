@@ -15,7 +15,6 @@ import (
 	"github.com/ophum/simpleident/templates"
 	"github.com/spf13/cobra"
 	"github.com/spf13/viper"
-	csrf "github.com/utrack/gin-csrf"
 	"gorm.io/driver/sqlite"
 	"gorm.io/gorm"
 )
@@ -72,14 +71,6 @@ func serverCommand(cmd *cobra.Command, args []string) error {
 
 	store := cookie.NewStore([]byte("secret"))
 	r.Use(sessions.Sessions("simpleident", store))
-	r.Use(csrf.Middleware(csrf.Options{
-		Secret: "secret",
-		ErrorFunc: func(ctx *gin.Context) {
-			ctx.String(http.StatusBadRequest, "CSRF token mismatch")
-			ctx.Abort()
-		},
-	}))
-
 	server := server.NewServer(db, true)
 	server.RegisterRoutes(r)
 

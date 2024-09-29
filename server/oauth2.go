@@ -5,6 +5,7 @@ import (
 	"net/http"
 	"net/url"
 	"strings"
+	"time"
 
 	"github.com/gin-contrib/sessions"
 	"github.com/gin-gonic/gin"
@@ -146,5 +147,76 @@ func (s *Server) oauth2PostAuthorize(ctx *gin.Context) error {
 	redirectURI.RawQuery = q.Encode()
 
 	ctx.Redirect(http.StatusFound, redirectURI.String())
+	return nil
+}
+
+type Oauth2GrantType string
+
+const (
+	Oauth2GrantTypeAuthorizationCode Oauth2GrantType = "authorization_code"
+)
+
+type Oauth2TokenRequest struct {
+	GrantType   Oauth2GrantType `form:"grant_type"`
+	Code        string          `form:"code"`
+	RedirectURI string          `form:"redirect_uri"`
+	ClientID    string          `form:"client_id"`
+}
+
+// FIXME: error handling
+func (s *Server) oauth2PostToken(ctx *gin.Context) error {
+	var req Oauth2TokenRequest
+	if err := ctx.ShouldBind(&req); err != nil {
+		return err
+	}
+
+	clientID, err := uuid.Parse(req.ClientID)
+	if err != nil {
+		return err
+	}
+
+	if req.GrantType != Oauth2GrantTypeAuthorizationCode {
+		return errors.New("invalid grant_type")
+	}
+
+	var code models.Oauth2Code
+	if err := s.db.Where("code = ?", req.Code).First(&code).Error; err != nil {
+		return err
+	}
+
+	if code.Oauth2ClientID != clientID {
+		return errors.New("invalid clientID")
+	}
+
+	if code.CreatedAt.Add(time.Minute * 5).Before(time.Now()) {
+		return errors.New("code expired")
+	}
+
+	token, err := generateSecret(20)
+	if err != nil {
+		return err
+	}
+
+	tokenID, err := uuid.NewV7()
+	if err != nil {
+		return err
+	}
+
+	if err := s.db.Create(&models.Oauth2Token{
+		Model: models.Model{
+			ID: tokenID,
+		},
+		Oauth2ClientID: clientID,
+		Token:          token,
+		AccountID:      code.AccountID,
+	}).Error; err != nil {
+		return err
+	}
+	ctx.JSON(http.StatusOK, gin.H{
+		"access_token":  token,
+		"token_type":    "bearer",
+		"expires_in":    3600,
+		"refresh_token": "",
+	})
 	return nil
 }
